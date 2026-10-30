@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProofPulse - High-Conversion Social Proof & Testimonial Micro-SaaS</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+              950: '#1e1b4b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & Babel for standalone browser execution -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .glass-panel {
+      background: rgba(24, 24, 27, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    @keyframes marqueeAnim {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .animate-marquee-smooth {
+      display: inline-flex;
+      animation: marqueeAnim 25s linear infinite;
+    }
+    .animate-marquee-smooth:hover {
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const INITIAL_TESTIMONIALS = [
+      {
+        id: "tst_1",
+        name: "Alex Rivera",
+        role: "CTO",
+        company: "HyperStack",
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        rating: 5,
+        headline: "Cut our sprint turnaround time in half!",
+        text: "DevFlow transformed how our 14-person engineering team collaborates. We replaced 3 fragmented status tools with DevFlow and shipped our Q2 release two weeks early.",
+        aiHook: "Cut sprint turnaround time in half and shipped Q2 two weeks early.",
+        sentiment: "Positive",
+        tags: ["Speed", "Productivity", "ROI"],
+        status: "approved",
+        isFavorited: true,
+        isVerified: true,
+        createdAt: "2026-08-28"
+      },
+      {
+        id: "tst_2",
+        name: "Marcus Vance",
+        role: "Lead Architect",
+        company: "Nexus Tech",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+        rating: 5,
+        headline: "The ROI was obvious within the first 48 hours.",
+        text: "I was skeptical at first, but our engineers immediately adopted it without any onboarding friction. The automated workflow triggers saved each engineer at least 4 hours per week.",
+        aiHook: "Saved each engineer at least 4 hours per week without onboarding friction.",
+        sentiment: "Positive",
+        tags: ["ROI", "Ease of Use"],
+        status: "approved",
+        isFavorited: true,
+        isVerified: true,
+        createdAt: "2026-08-27"
+      },
+      {
+        id: "tst_3",
+        name: "Elena Rostova",
+        role: "VP of Engineering",
+        company: "CloudScale",
+        avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+        rating: 5,
+        headline: "Best tooling investment we made this year.",
+        text: "Customer support is top notch, features are continuously shipped, and the platform reliability is rock solid.",
+        aiHook: "Best tooling investment this year with rock-solid reliability.",
+        sentiment: "Positive",
+        tags: ["Customer Support", "Reliability"],
+        status: "approved",
+        isFavorited: false,
+        isVerified: true,
+        createdAt: "2026-08-26"
+      },
+      {
+        id: "tst_4",
+        name: "Jessica Walsh",
+        role: "CMO",
+        company: "Stride Fitness",
+        avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+        rating: 5,
+        headline: "Conversion rate jumped by 42% on day 1!",
+        text: "PixelCraft redesigned our marketing site and landing funnels. The attention to detail, micro-animations, and fast page speeds boosted our sign-up conversion rate immediately.",
+        aiHook: "Landing page redesign boosted signup conversion rate by 42% on day 1.",
+        sentiment: "Positive",
+        tags: ["Conversion", "Design", "ROI"],
+        status: "approved",
+        isFavorited: true,
+        isVerified: true,
+        createdAt: "2026-08-22"
+      }
+    ];
+
+    function App() {
+      const [tab, setTab] = useState('dashboard');
+      const [testimonials, setTestimonials] = useState(INITIAL_TESTIMONIALS);
+      const [widgetFormat, setWidgetFormat] = useState('wall');
+      const [upgradeOpen, setUpgradeOpen] = useState(false);
+      const [currentPlan, setCurrentPlan] = useState('Pro');
+      const [toastMsg, setToastMsg] = useState(null);
+
+      // Form state for submit review
+      const [revName, setRevName] = useState('');
+      const [revRole, setRevRole] = useState('');
+      const [revCompany, setRevCompany] = useState('');
+      const [revRating, setRevRating] = useState(5);
+      const [revText, setRevText] = useState('');
+
+      const notify = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 3000);
+      };
+
+      const handleAddReview = (e) => {
+        e.preventDefault();
+        if (!revName || !revText) return;
+        const newRev = {
+          id: `tst_${Date.now()}`,
+          name: revName,
+          role: revRole || 'Founder',
+          company: revCompany || 'SaaS Co',
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(revName)}`,
+          rating: revRating,
+          headline: revText.slice(0, 45),
+          text: revText,
+          aiHook: revText.slice(0, 55),
+          sentiment: "Positive",
+          tags: ["Value", "Speed"],
+          status: "approved",
+          isFavorited: false,
+          isVerified: true,
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        setTestimonials([newRev, ...testimonials]);
+        try { confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); } catch(err){}
+        notify("Testimonial submitted successfully! 🎉");
+        setRevName('');
+        setRevText('');
+        setRevCompany('');
+        setTab('testimonials');
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          
+          {/* Toast Notification */}
+          {toastMsg && (
+            <div className="fixed top-5 right-5 z-50 bg-emerald-950 border border-emerald-600 text-emerald-200 px-4 py-3 rounded-2xl text-xs font-bold shadow-2xl animate-bounce">
+              ✓ {toastMsg}
+            </div>
+          )}
+
+          {/* Top Navbar */}
+          <header className="h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40">
+            <div className="flex items-center gap-4">
+              <div 
+                onClick={() => setTab('landing')} 
+                className="flex items-center gap-2 cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
+                  ⚡
+                </div>
+                <span className="font-extrabold text-base tracking-tight text-white">ProofPulse</span>
+                <span className="text-[10px] font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded">
+                  Micro-SaaS
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setTab('public-form')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 transition"
+              >
+                🌐 Public Form
+              </button>
+
+              <button 
+                onClick={() => setTab('embed-demo')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-700 text-emerald-400 transition"
+              >
+                ⚡ Live Embed Sandbox
+              </button>
+
+              <button 
+                onClick={() => setUpgradeOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-400 transition"
+              >
+                ⭐ {currentPlan} Plan
+              </button>
+
+              <button
+                onClick={() => setTab(tab === 'landing' ? 'dashboard' : 'landing')}
+                className="text-xs text-zinc-400 hover:text-white px-2 py-1"
+              >
+                {tab === 'landing' ? 'Dashboard' : 'Landing'}
+              </button>
+            </div>
+          </header>
+
+          {/* MAIN VIEW CONTROLLER */}
+          {tab === 'landing' ? (
+            /* LANDING PAGE */
+            <div className="flex-1 py-16 px-6 max-w-5xl mx-auto text-center">
+              <div className="inline-block px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 mb-6">
+                ⚡ Proven $19–$49/mo Micro-SaaS Formula
+              </div>
+              <h1 className="text-4xl sm:text-6xl font-extrabold text-white mb-6 leading-tight">
+                Turn Customer Love Into <br/>
+                <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
+                  Paying Customers
+                </span>
+              </h1>
+              <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-8">
+                Collect 5-star testimonials, extract AI hooks, and embed high-converting Walls of Love with 1 line of code.
+              </p>
+              <div className="flex justify-center gap-4 mb-12">
+                <button onClick={() => setTab('dashboard')} className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30">
+                  Launch Dashboard
+                </button>
+                <button onClick={() => setTab('embed-demo')} className="px-8 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold text-sm">
+                  View Embed Demo
+                </button>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="glass-panel p-6 rounded-3xl border border-zinc-800 text-left mb-16">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                  <span className="text-xs font-bold text-indigo-400">⚡ Embedded Wall of Love</span>
+                  <span className="text-xs text-zinc-500">{testimonials.length} reviews live</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {testimonials.map(t => (
+                    <div key={t.id} className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 border-t-2 border-t-indigo-500">
+                      <div className="text-amber-400 text-xs mb-1">{'★'.repeat(t.rating)}</div>
+                      <h4 className="font-bold text-xs text-white mb-1">"{t.aiHook || t.headline}"</h4>
+                      <p className="text-[11px] text-zinc-400 mb-3">"{t.text}"</p>
+                      <div className="flex items-center gap-2">
+                        <img src={t.avatar} className="w-6 h-6 rounded-full object-cover" />
+                        <div>
+                          <div className="text-xs font-bold text-white">{t.name} ✓</div>
+                          <div className="text-[10px] text-zinc-500">{t.role} at {t.company}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : tab === 'public-form' ? (
+            /* PUBLIC REVIEW SUBMISSION FORM */
+            <div className="flex-1 py-12 px-6 max-w-xl mx-auto w-full">
+              <button onClick={() => setTab('dashboard')} className="text-xs text-zinc-400 mb-4 block hover:text-white">
+                ← Back to Dashboard
+              </button>
+              <div className="glass-panel p-8 rounded-3xl border border-zinc-800 shadow-2xl">
+                <div className="text-center mb-6">
+                  <div className="text-3xl mb-2">⚡</div>
+                  <h2 className="text-2xl font-bold text-white">Share Your Experience</h2>
+                  <p className="text-xs text-zinc-400">Leave a quick review to help our team improve!</p>
+                </div>
+
+                <form onSubmit={handleAddReview} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1">Rating</label>
+                    <div className="flex gap-2">
+                      {[1,2,3,4,5].map(s => (
+                        <button type="button" key={s} onClick={() => setRevRating(s)} className="text-2xl">
+                          {s <= revRating ? '⭐' : '☆'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1">Your Full Name *</label>
+                    <input required type="text" placeholder="Sarah Jenkins" value={revName} onChange={e=>setRevName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-zinc-300 font-bold mb-1">Role</label>
+                      <input type="text" placeholder="Product Lead" value={revRole} onChange={e=>setRevRole(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100" />
+                    </div>
+                    <div>
+                      <label className="block text-zinc-300 font-bold mb-1">Company</label>
+                      <input type="text" placeholder="Acme Inc" value={revCompany} onChange={e=>setRevCompany(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1">Your Review Story *</label>
+                    <textarea required rows={4} placeholder="How did this product help your team?" value={revText} onChange={e=>setRevText(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100" />
+                  </div>
+
+                  <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg">
+                    Submit Testimonial
+                  </button>
+                </form>
+              </div>
+            </div>
+          ) : tab === 'embed-demo' ? (
+            /* LIVE EMBED SANDBOX */
+            <div className="flex-1 p-8 max-w-5xl mx-auto w-full">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Live Third-Party Embed Simulator</h2>
+                  <p className="text-xs text-zinc-400">Simulates how an external SaaS or ecommerce website displays ProofPulse</p>
+                </div>
+                <button onClick={() => setTab('dashboard')} className="text-xs bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-lg">
+                  Back to Dashboard
+                </button>
+              </div>
+
+              <div className="rounded-3xl border border-zinc-700 bg-zinc-950 p-8 shadow-2xl space-y-12">
+                <div className="text-center max-w-lg mx-auto space-y-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950 text-indigo-300 text-xs font-bold border border-indigo-800">
+                    ⭐⭐⭐⭐⭐ 4.9/5 from 320+ verified teams
+                  </div>
+                  <h3 className="text-3xl font-extrabold text-white">Build Fast. Ship Faster.</h3>
+                  <p className="text-xs text-zinc-400">The modern developer suite for hyper-growth software companies.</p>
+                </div>
+
+                {/* Embedded Widget */}
+                <div>
+                  <div className="text-center font-bold text-xs text-indigo-400 uppercase tracking-wider mb-4">
+                    ⚡ Wall of Love Embed
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {testimonials.map(t => (
+                      <div key={t.id} className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
+                        <div className="text-amber-400 text-xs mb-1">★★★★★</div>
+                        <h4 className="font-bold text-xs text-white mb-1">"{t.aiHook || t.headline}"</h4>
+                        <p className="text-[11px] text-zinc-400 mb-3">"{t.text}"</p>
+                        <div className="text-xs font-bold text-white">{t.name}</div>
+                        <div className="text-[10px] text-zinc-500">{t.role} at {t.company}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* DASHBOARD / INBOX / WIDGET STUDIO */
+            <div className="flex-1 flex">
+              {/* Sidebar */}
+              <aside className="w-60 border-r border-zinc-800 p-4 space-y-1 shrink-0 bg-zinc-950/60">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase px-3 py-1">Menu</div>
+                {[
+                  { id: 'dashboard', label: '📊 Overview' },
+                  { id: 'testimonials', label: '💬 Testimonials Inbox' },
+                  { id: 'widgets', label: '🎨 Widget Studio' },
+                  { id: 'analytics', label: '📈 Conversion Analytics' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setTab(item.id)}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      tab === item.id ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+
+                <div className="mt-8 p-3 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 text-xs">
+                  <div className="font-bold text-indigo-300 mb-1">⭐ {currentPlan} Active</div>
+                  <p className="text-[11px] text-zinc-400 mb-2">Unlimited widgets & AI hooks enabled.</p>
+                  <button onClick={() => setUpgradeOpen(true)} className="w-full py-1.5 bg-indigo-600 rounded-lg text-white font-bold text-[11px]">
+                    Manage Plan
+                  </button>
+                </div>
+              </aside>
+
+              {/* Dashboard Content */}
+              <main className="flex-1 p-8 overflow-y-auto">
+                {tab === 'dashboard' && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center pb-4 border-b border-zinc-800">
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">DevFlow AI Dashboard</h2>
+                        <p className="text-xs text-zinc-400">Social proof metrics & conversion overview</p>
+                      </div>
+                      <button onClick={() => setTab('public-form')} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow">
+                        + Submit Review
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="glass-panel p-4 rounded-2xl border border-zinc-800">
+                        <div className="text-xs text-zinc-400 font-semibold mb-1">Total Reviews</div>
+                        <div className="text-2xl font-extrabold text-white">{testimonials.length}</div>
+                      </div>
+                      <div className="glass-panel p-4 rounded-2xl border border-zinc-800">
+                        <div className="text-xs text-zinc-400 font-semibold mb-1">Average Rating</div>
+                        <div className="text-2xl font-extrabold text-amber-400">4.9 / 5.0</div>
+                      </div>
+                      <div className="glass-panel p-4 rounded-2xl border border-zinc-800">
+                        <div className="text-xs text-zinc-400 font-semibold mb-1">Widget Views</div>
+                        <div className="text-2xl font-extrabold text-emerald-400">14,250</div>
+                      </div>
+                      <div className="glass-panel p-4 rounded-2xl border border-zinc-800">
+                        <div className="text-xs text-zinc-400 font-semibold mb-1">Conversion Lift</div>
+                        <div className="text-2xl font-extrabold text-pink-400">+28.5%</div>
+                      </div>
+                    </div>
+
+                    {/* Quick 1-Line Embed Code */}
+                    <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-sm text-white mb-0.5">Embed Wall on Your Website</div>
+                        <p className="text-xs text-zinc-400">Copy this 1-line script into your HTML or Webflow head tag</p>
+                      </div>
+                      <button onClick={() => notify("Embed snippet copied to clipboard!")} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl">
+                        Copy Embed Script
+                      </button>
+                    </div>
+
+                    {/* Review list */}
+                    <div className="space-y-3">
+                      <h3 className="font-bold text-sm text-white">Recent Customer Reviews</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {testimonials.map(t => (
+                          <div key={t.id} className="glass-panel p-4 rounded-2xl border border-zinc-800">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <img src={t.avatar} className="w-8 h-8 rounded-full object-cover" />
+                                <div>
+                                  <div className="font-bold text-xs text-white">{t.name} ✓</div>
+                                  <div className="text-[10px] text-zinc-400">{t.role} at {t.company}</div>
+                                </div>
+                              </div>
+                              <span className="text-amber-400 text-xs">★★★★★</span>
+                            </div>
+                            <p className="text-xs text-zinc-200 mb-2">"{t.text}"</p>
+                            <div className="text-[10px] text-indigo-400 font-semibold">✨ AI Hook: "{t.aiHook || t.headline}"</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'testimonials' && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center pb-4 border-b border-zinc-800">
+                      <h2 className="text-2xl font-bold text-white">All Testimonials ({testimonials.length})</h2>
+                      <button onClick={() => setTab('public-form')} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl">
+                        + New Testimonial
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {testimonials.map(t => (
+                        <div key={t.id} className="glass-panel p-5 rounded-2xl border border-zinc-800">
+                          <div className="flex items-center gap-3 mb-3">
+                            <img src={t.avatar} className="w-10 h-10 rounded-full object-cover border border-zinc-700" />
+                            <div>
+                              <div className="font-bold text-sm text-white">{t.name}</div>
+                              <div className="text-xs text-zinc-400">{t.role} • {t.company}</div>
+                            </div>
+                          </div>
+                          <div className="text-amber-400 text-xs mb-2">★★★★★</div>
+                          <p className="text-xs text-zinc-300 mb-3">"{t.text}"</p>
+                          <div className="p-2 rounded-xl bg-indigo-950/40 border border-indigo-800 text-[11px] text-indigo-200">
+                            ✨ AI Highlight: "{t.aiHook || t.headline}"
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'widgets' && (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-white">Widget Studio & Live Customizer</h2>
+                    <div className="flex gap-2">
+                      {['wall', 'marquee', 'badge'].map(f => (
+                        <button
+                          key={f}
+                          onClick={() => setWidgetFormat(f)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold ${
+                            widgetFormat === f ? 'bg-indigo-600 text-white' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                          }`}
+                        >
+                          {f === 'wall' ? 'Wall of Love' : f === 'marquee' ? 'Marquee Strip' : 'Star Rating Badge'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="glass-panel p-6 rounded-3xl border border-zinc-800">
+                      {widgetFormat === 'wall' && (
+                        <div className="grid grid-cols-3 gap-4">
+                          {testimonials.map(t => (
+                            <div key={t.id} className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800">
+                              <div className="text-amber-400 text-xs mb-1">★★★★★</div>
+                              <div className="font-bold text-xs text-white mb-1">"{t.aiHook || t.headline}"</div>
+                              <div className="text-[11px] text-zinc-400">{t.name}, {t.company}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {widgetFormat === 'marquee' && (
+                        <div className="overflow-hidden py-4">
+                          <div className="animate-marquee-smooth flex gap-4">
+                            {[...testimonials, ...testimonials].map((t, idx) => (
+                              <div key={idx} className="w-64 shrink-0 p-4 bg-zinc-900 rounded-2xl border border-zinc-800">
+                                <div className="text-amber-400 text-xs mb-1">★★★★★</div>
+                                <div className="font-bold text-xs text-white truncate">"{t.aiHook || t.headline}"</div>
+                                <div className="text-[10px] text-zinc-500">{t.name}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {widgetFormat === 'badge' && (
+                        <div className="py-8 flex justify-center">
+                          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-bold">
+                            <span className="text-amber-400">★★★★★</span>
+                            <span>Rated 4.9/5 by 320+ fast-growing teams</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'analytics' && (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-white">Conversion & Sentiment Analytics</h2>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="glass-panel p-6 rounded-3xl border border-zinc-800">
+                        <div className="font-bold text-sm text-white mb-4">AI Sentiment Breakdown</div>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1 font-bold">
+                              <span className="text-emerald-400">Positive & Enthusiastic</span>
+                              <span>92%</span>
+                            </div>
+                            <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
+                              <div className="w-[92%] h-full bg-emerald-400" />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1 font-bold">
+                              <span className="text-amber-400">Neutral</span>
+                              <span>6%</span>
+                            </div>
+                            <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
+                              <div className="w-[6%] h-full bg-amber-400" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="glass-panel p-6 rounded-3xl border border-zinc-800">
+                        <div className="font-bold text-sm text-white mb-4">Top Mentioned Keyword Tags</div>
+                        <div className="flex flex-wrap gap-2">
+                          {['#ROI (18)', '#Speed (15)', '#Productivity (14)', '#Customer Support (9)', '#Ease of Use (8)'].map(t => (
+                            <span key={t} className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-200">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </main>
+            </div>
+          )}
+
+          {/* UPGRADE / MONETIZATION MODAL */}
+          {upgradeOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-2xl w-full p-8 relative shadow-2xl">
+                <button onClick={() => setUpgradeOpen(false)} className="absolute right-6 top-6 text-zinc-400 hover:text-white">✕</button>
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-white">Upgrade ProofPulse Plan</h3>
+                  <p className="text-xs text-zinc-400">Increase conversion rates by embedding verified social proof</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Pro Monthly */}
+                  <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 text-left flex flex-col justify-between">
+                    <div>
+                      <div className="font-bold text-sm text-zinc-300 mb-1">Pro Monthly</div>
+                      <div className="text-2xl font-extrabold text-white mb-2">$19<span className="text-xs text-zinc-400 font-normal">/mo</span></div>
+                      <p className="text-xs text-zinc-400 mb-4">Unlimited testimonials, AI hook extractor, all 5 widgets, remove watermark.</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        window.open("https://buy.stripe.com/test_proofpulse_pro", "_blank");
+                        setCurrentPlan('Pro');
+                        setUpgradeOpen(false);
+                        notify("Redirecting to Stripe Pro Checkout...");
+                      }} 
+                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition"
+                    >
+                      Subscribe ($19/mo)
+                    </button>
+                  </div>
+
+                  {/* Black Friday LTD Featured */}
+                  <div className="p-5 rounded-2xl bg-zinc-950 border-2 border-indigo-500 text-left relative flex flex-col justify-between shadow-lg shadow-indigo-500/20">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500 text-white uppercase tracking-wider">
+                      ⚡ Black Friday LTD
+                    </span>
+                    <div>
+                      <div className="font-bold text-sm text-indigo-400 mb-1">Pro Lifetime Deal</div>
+                      <div className="text-2xl font-extrabold text-white mb-1">$79<span className="text-xs text-zinc-400 font-normal line-through ml-2">$228/yr</span></div>
+                      <p className="text-[11px] text-emerald-400 font-medium mb-3">Pay once, own forever. 0 recurring fees.</p>
+                      <ul className="text-[11px] text-zinc-300 space-y-1.5 mb-4">
+                        <li>✓ All Pro Features for Life</li>
+                        <li>✓ Unlimited Testimonial Spaces</li>
+                        <li>✓ Priority AI Processing</li>
+                      </ul>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        window.open("https://buy.stripe.com/test_proofpulse_ltd_79", "_blank");
+                        setCurrentPlan('Pro LTD');
+                        setUpgradeOpen(false);
+                        notify("Redirecting to Stripe Black Friday LTD Checkout...");
+                      }} 
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition"
+                    >
+                      Claim LTD ($79 Once)
+                    </button>
+                  </div>
+
+                  {/* Agency Lifetime */}
+                  <div className="p-5 rounded-2xl bg-zinc-950 border border-amber-500/40 text-left flex flex-col justify-between">
+                    <div>
+                      <div className="font-bold text-sm text-amber-400 mb-1">Agency Lifetime</div>
+                      <div className="text-2xl font-extrabold text-white mb-1">$249<span className="text-xs text-zinc-400 font-normal line-through ml-2">$588/yr</span></div>
+                      <p className="text-[11px] text-zinc-400 mb-3">For agencies, freelancers & serial builders.</p>
+                      <ul className="text-[11px] text-zinc-300 space-y-1.5 mb-4">
+                        <li>✓ Unlimited Client Spaces</li>
+                        <li>✓ Custom CNAME (`proof.client.com`)</li>
+                        <li>✓ White-label widget studio</li>
+                      </ul>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        window.open("https://buy.stripe.com/test_proofpulse_agency_249", "_blank");
+                        setCurrentPlan('Agency LTD');
+                        setUpgradeOpen(false);
+                        notify("Redirecting to Stripe Agency Checkout...");
+                      }} 
+                      className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded-xl transition"
+                    >
+                      Get Agency LTD ($249)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
